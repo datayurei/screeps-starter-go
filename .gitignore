@@ -1,0 +1,20 @@
+# Build output
+/dist
+*.wasm
+/go/vendor
+
+# Dependencies
+/node_modules
+/package-lock.json
+/yarn.lock
+/bun.lock
+
+# Screeps credentials (copy screeps.sample.json -> screeps.json and add your token)
+screeps.json
+
+# Editor / OS
+.idea
+.vscode
+.DS_Store
+*.swp
+*~
