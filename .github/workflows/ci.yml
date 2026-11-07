@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Fast checks that need only Go: unit tests and vet.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            go/go.mod
+            tools/go.mod
+      - name: Unit tests (lib, brain)
+        run: cd go && go test ./lib/... ./brain/
+      - name: Vet the bot (needs the wasm target for syscall/js)
+        run: cd go && GOOS=js GOARCH=wasm go vet ./...
+      - name: Vet the build tool
+        run: cd tools && go vet ./...
+
+  # Full build with TinyGo, then the Node end-to-end check against dist/.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            go/go.mod
+            tools/go.mod
+      - uses: acifani/setup-tinygo@v2
+        with:
+          tinygo-version: "0.44.0"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build (generate, TinyGo compile, assemble dist/)
+        run: ./scripts/build.sh
+      - name: Generated files are up to date
+        run: |
+          git diff --exit-code -- go/lib/gen.go go/lib/obj_gen.go js/host_gen.js docs/api-coverage.md \
+            || { echo "::error::generated files differ from the specs; run ./scripts/build.sh and commit"; exit 1; }
+      - name: End-to-end check (real tick, persistent store, every op/query)
+        run: node scripts/e2e.js
